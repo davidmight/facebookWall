@@ -1,0 +1,38 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+	<title>Insufficient cryptographic strength :: CipherDocs</title>
+	<style type="text/css">
+		imagestyle
+		{
+			position:absolute;
+			left:0px;
+			top:0px;
+		}
+		p.sansserif{font-family:Arial,Helvetica,sans-serif;}
+		body {
+			width: 325px;
+			word-wrap: break-word;
+			background-color: #ffffff;
+		}
+	</style>
+</head>
+<body>
+	<img class="imagestyle" src="images/cipherdocs_logo.jpg"/>
+	<p class="sansserif">CipherDocs has determined that 256-bit AES security is not available to Java. This may indicate that the unlimited strength jurisdiction policy files are not installed.</p>
+	<p class="sansserif">Please either restart your browser with administrative(root) priviledges to install the files automatically, or refer to our <a style="color:blue; text-decoration: underline;" href="http://cipherdocs.com/cipherdocsinstallation.pdf">installation document</a> for manual instructions. The following information may be useful: </p>
+	<hr/>
+	<script language="javascript" type="text/javascript">
+	var arg = window.opener.JVMInfo;
+	for(key in arg){
+		document.write("<p class=\"sansserif\"><b>"+key+"</b></p> ","<p class=\"sansserif\">"+arg[key]+"</p>");
+	}
+	</script>
+	<hr/>
+	<p class="sansserif">CipherDocs will not operate until the unlimited strength policy is in effect.</p>
+	<form action = "" method="post">
+		<input type="button" value="Continue" onclick="javascript:window.close();">
+	</form>
+	
+</body>
+</html>

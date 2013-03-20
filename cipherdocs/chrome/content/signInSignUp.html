@@ -1,0 +1,212 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html>
+<head>
+	<title>CipherDocs : Sign in/ Sign up</title>
+	
+	<script language="javascript" type="text/javascript">
+		function useExistingAccount(){
+			showThrobberDiv("Logging in..");
+			var e = document.getElementById('emailField').value;
+			var p = document.getElementById('passField').value;
+			var sync = window.opener.FacadeWrapper.facade.attemptSync(e,p);
+			var toReturn = {email : e,
+							password : p,
+							firstSyncResult : sync};
+			if (window.dialogArguments != null) {
+				window.dialogArguments.retVal.signIn = toReturn;
+			} else {
+				if ((!window.opener.closed) && 
+						(window.opener.modalSharedStruct)) {
+					window.opener.modalSharedStruct.retVal.signIn = toReturn;
+				}
+			}
+			window.close();
+		}
+		
+		function trySignUp(){
+			showThrobberDiv("Checking network connectivity..");
+			var connected = window.opener.FacadeWrapper.facade.checkNetworkConnectivity();
+			var toReturn = (connected) ? "true": "false" ;
+			if (window.dialogArguments != null) {
+				window.dialogArguments.retVal.signUpProceed = toReturn;
+			} else {
+				if ((!window.opener.closed) && 
+						(window.opener.modalSharedStruct)) {
+					window.opener.modalSharedStruct.retVal.signUpProceed = toReturn;
+				}
+			}
+			window.close();
+		}
+		
+		function showThrobberDiv(str){
+			hideProxySettings();
+			hideLoginForm();
+			var throbberDiv = document.getElementById("throbberDiv");
+			var throbberText = document.createTextNode(str);
+			document.getElementById("throbberText").appendChild(throbberText);
+			if(loginFormDiv.style.display=="none"){
+				throbberDiv.style.display = "block";
+				window.resizeBy(throbberDiv.clientWidth-throbberDiv.scrollWidth +10,throbberDiv.clientHeight+20);
+			}
+		}
+		
+		function showLoginForm(){
+			hideProxySettings();
+			var loginFormDiv = document.getElementById("loginFormDiv");
+			if(loginFormDiv.style.display=="none"){
+				loginFormDiv.style.display = "block";
+				window.resizeBy(loginFormDiv.clientWidth-loginFormDiv.scrollWidth +10,loginFormDiv.clientHeight+20);
+			}
+		}
+		
+		function hideLoginForm(){
+			document.getElementById('signInButton').disabled = false;
+			var loginFormDiv = document.getElementById("loginFormDiv");
+			if(loginFormDiv.style.display=="block"){
+				window.resizeBy(-1*(loginFormDiv.clientWidth-loginFormDiv.scrollWidth +10),-1*(loginFormDiv.clientHeight+20));
+				loginFormDiv.style.display = "none";
+			}
+		}
+		
+		function showProxySettingsForm(){
+			hideLoginForm();
+			document.getElementById("proxySettingsLink").href="javascript:;";
+			var settingsFormDiv = document.getElementById("settingsFormDiv");
+			if(settingsFormDiv.style.display=="none"){
+				settingsFormDiv.style.display = "block";
+				window.resizeBy(settingsFormDiv.clientWidth-settingsFormDiv.scrollWidth +10,settingsFormDiv.clientHeight+20);
+			}
+		}
+		
+		function hideProxySettings(){
+			document.getElementById("proxySettingsLink").href="javascript:showProxySettingsForm()";
+			var settingsFormDiv = document.getElementById("settingsFormDiv");
+			if(settingsFormDiv.style.display=="block"){
+				window.resizeBy(-1*(settingsFormDiv.clientWidth-settingsFormDiv.scrollWidth +10),-1*(settingsFormDiv.clientHeight+20));
+				settingsFormDiv.style.display = "none";
+			}
+		}
+		
+		function setProxySettings() {
+			var settings = { username:document.getElementById('proxyUsername').value, 
+						password:document.getElementById('proxyPassword').value,
+						host:document.getElementById('proxyHost').value, 
+						port:document.getElementById('proxyPort').value 
+					    };
+			window.opener.saveUserSettings(settings);
+			if(window.opener.modalSharedStruct){ //started by extension
+				if (window.dialogArguments != null) {
+					window.dialogArguments.retVal.proxySettings = settings;
+				} else {
+					if ((!window.opener.closed) && 
+						(window.opener.modalSharedStruct)) {
+						window.opener.modalSharedStruct.retVal.proxySettings = settings;
+				}
+			}
+			}
+			hideProxySettings();
+		}
+	
+	</script>
+	
+	<style type="text/css">
+		imagestyle
+		{
+			position:left;
+			left:0px;
+			top:0px;
+		}
+		img.center {display: block; margin-left: auto; margin-right: auto;}
+		p.sansserif{font-family:Arial,Helvetica,sans-serif;}
+		p.center {text-align: center;}
+		body {
+			width: 300px;
+			word-wrap: break-word;
+			background-color: #ffffff;
+		}
+	</style>
+</head>
+<body onload = "document.previouslyRegisteredForm.emailField.focus()">
+	<img class="imagestyle" src="images/cipherdocs_logo.jpg"/>
+	
+	<p class="sansserif">Please sign into an existing CipherDocs account or register for a new account.</p>
+	<form name="optionForm">
+		<table width="100%" align="center">
+			<tr>
+				<td align="center"><input type="button" id="signInButton" value="Sign in" onclick="javascript:showLoginForm();document.getElementById('signInButton').disabled = true; "/></td>
+				<td align="center"><input type="button" id="signUpButton" value="Sign up" onclick="javascript:trySignUp();"/></td>
+				<td align="bottom"><input type="button" value="Dismiss" onclick="javascript:window.close();"/></td>
+			</tr>
+		</table>
+	</form>
+	<p></p>
+	<p class="sansserif" align="right"><a id="proxySettingsLink" style="color:blue; text-decoration: underline;" href="javascript:showProxySettingsForm()">Enter proxy settings here..</a></p>
+	
+	<div id="loginFormDiv" style="display:none">
+	
+		<hr/>	
+		<p class="sansserif">If you already have an account, please enter your email address and password to log into that account.</p>
+		<form name="previouslyRegisteredForm" action="javascript:useExistingAccount()">
+			<table width="100%" align="center">
+				<tr>
+					<td align="left"><p class="sansserif">Email:&nbsp;</p></6td>
+					<td align="left"><input type="text" id="emailField"/></td>
+				</tr>
+				<tr>
+					<td align="left"><p class="sansserif">Password:&nbsp;</p></td>
+					<td align="left"><input type="password" id="passField"/></td>
+				</tr>
+				<tr>
+					<td colspan="2" align="right">
+						<input type="submit" style="visibility: hidden;"/>
+						<input type="button" value="Sign In" onclick="javascript:useExistingAccount();"/>
+					</td>
+					
+					
+				</tr>
+			</table>
+		</form>
+		
+	</div>
+	
+	<div id="settingsFormDiv" style="display:none">
+	
+		<hr/>
+		<form name="settingsForm" action = "javascript:setProxySettings();" method="post">
+		<table width="100%" align="center">
+			<tr>
+				<td align="left">Proxy Host:</td>
+				<td align="left"><input id="proxyHost" type="text" /></td>
+			</tr>
+			<tr>
+				<td align="left">Proxy Port:</td>
+				<td align="left"><input id="proxyPort" type="text" /></td>
+			</tr>
+			<tr>
+				<td align="left">Proxy Username:</td>
+				<td align="left"><input id="proxyUsername" type="text" /></td>
+			</tr>
+			<tr>
+				<td align="left">Proxy Password:</td>
+				<td align="left"><input id="proxyPassword" type="password" /></td>
+			</tr>
+
+			<tr>
+				<td colspan="2" align="right">
+					<input type="submit" style="visibility: hidden;" />
+					<input type="button" value="Save" onclick="javascript:setProxySettings();"/>
+				</td>
+       		</tr>
+		</table>
+	</form>
+	</div>
+	
+	<div id="throbberDiv" style="display:none">
+		<img src="images/throbber.gif" class="center"/>
+		<p id="throbberText" class="sansserif center"></p>
+		
+	</div>
+	
+	
+</body>
+</html>

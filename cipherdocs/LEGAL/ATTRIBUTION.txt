@@ -1,0 +1,21 @@
+--Attribution of software included in the CipherDocs software distribution.--
+
+Impartio Ltd, Feburary 2012
+ 
+* CipherDocs incorporates the SQLiteJDBC software from xerial.org, licensed under the 
+Apache License v2.0, as included in the file LICENSE-2.0.txt in the SQLiteJDBC
+directory.
+
+* CipherDocs incorporates the Apache HttpComponents™ software from the Apache Software
+Foundation, licensed under the Apache License v2.0, as included in the file 
+LICENSE-2.0.txt in the HTTPComponents directory.
+
+* CipherDocs incorporates the Bouncy Castle Cryptographic Package, licensed under the
+included file LICENSE.html in the BouncyCastle directory.
+
+* CipherDocs incorporates the org.JSON(Douglas Crockford) software, licensed under the
+included file LICENSE.html in the JSON directory.
+
+* CipherDocs uses parts of the LiveHTTPHeaders Mozilla Firefox extension, licensed 
+under the GNU Gereral Public License Version 2, as included in the file gpl.txt in the
+LiveHTTPHeaders directory.
