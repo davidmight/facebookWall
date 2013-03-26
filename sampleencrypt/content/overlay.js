@@ -62,9 +62,38 @@ HttpRequestObserver.prototype = {
 				var visitor = new HeaderInfoVisitor(oHttp);
 				var requestHeaders = visitor.visitRequest();
 				var postData = visitor.getPostData();
-				Firebug.Console.log(URLToArray(postData.body));
 				
-				//window.alert(uri);
+				var postArray = URLToArray(postData.body);
+				
+				//Firebug.Console.log(postArray["xhpc_message"]);
+				var encrypted = CryptoJS.AES.encrypt(postArray["xhpc_message"], "Secret Passphrase");
+				//Firebug.Console.log(encrypted);
+				
+				postArray["xhpc_message"] = encrypted.toString();
+				postArray["xhpc_message_text"] = encrypted.toString();
+				
+				postData = ArrayToURL(postArray);
+				
+				var tmp = Components.classes["@mozilla.org/io/string-input-stream;1"].createInstance(Components.interfaces.nsIStringInputStream);
+				if ("data" in tmp) { //the API has version differences- this will determine which version we're using
+					// Gecko 1.9 or newer
+					tmp.data = postData;
+				}else {
+					// 1.8 or older
+					tmp.setData(postData, postData.length);
+				}
+				try {
+					// Must change HttpChannel to UploadChannel to be able to access post data
+					oHttp.QueryInterface(Components.interfaces.nsIUploadChannel);
+					oHttp.setUploadStream(tmp, "application/x-www-form-urlencoded;charset=utf-8", -1);//replace default stream with modified "tmp"
+					oHttp.requestMethod = "POST";
+					oHttp.QueryInterface(Components.interfaces.nsIHttpChannel);
+				} catch(e) {
+					Components.utils.reportError("onModifyRequest:error setting request upload stream for edit");
+					Components.utils.reportError(e);
+				}
+				Components.utils.reportError("mutate stream changed!");	
+				
 			}
 			
 		}catch(e){
@@ -96,6 +125,14 @@ HttpRequestObserver.prototype = {
 		observerService.removeObserver(this, "http-on-modify-request");
 	}
 	
+}
+
+function ArrayToURL(array){
+	var pairs = [];
+	for(var key in array)
+		if(array.hasOwnProperty(key))
+			pairs.push(encodeURIComponent(key) + '=' + encodeURIComponent(array[key]));
+	return pairs.join('&');
 }
 
 function URLToArray(url){
@@ -349,3 +386,68 @@ window.addEventListener("load", function () {
 	// note that this includes frames/iframes within the document
 	gBrowser.addEventListener("load", pageLoad, true);
 }, false);
+
+/*function cryptInit(myKey){
+	AES_Init();
+	var key = string2Bin(myKey);
+	AES_ExpandKey(key);
+	return key;
+}
+
+function encrypt(inputStr, key){
+	var block = string2Bin(inputStr);
+	AES_Encrypt(block, key);
+	var data = bin2String(block);
+	return data;
+}
+
+function decrypt(inputStr, key){
+	var block = string2Bin(inputStr);
+	AES_Decrypt(block, key);
+	var data = bin2String(block);
+	return data;
+}
+
+function encryptLongStr(myStr, key){
+	if(myStr.length > 16){
+		var data = "";
+		for(var i=0; i<myStr.length; i+=16){
+			data+=encrypt(myStr.substr(i,16), key);
+		}
+		return data;
+	}else{
+		return encrypt(myStr, key);
+	}
+}
+
+function decryptLongStr(myStr, key){
+	if(myStr.length > 16){
+		var data = "";
+		for(var i=0; i<myStr.length; i+=16){
+			data+=decrypt(myStr.substr(i,16), key)
+		}
+		return data;
+	}else{
+		return decrypt(myStr, key);
+	}
+}
+
+function cryptFinish(){AES_Done();}
+function bin2String(array) {
+var result = "";
+for (var i = 0; i < array.length; i++) {
+result += String.fromCharCode(parseInt(array[i], 2));
+}
+return result;
+}
+function string2Bin(str) {
+var result = [];
+for (var i = 0; i < str.length; i++) {
+result.push(str.charCodeAt(i));
+}
+return result;
+}
+
+function bin2String(array) {
+return String.fromCharCode.apply(String, array);
+}*/
