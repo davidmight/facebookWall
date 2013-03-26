@@ -18,7 +18,7 @@ SampleWall.BrowserOverlay = {
 
 var observer;
 function startHttpObserver(){
-	observer = new httpRequestObserver();
+	observer = new HttpRequestObserver();
 	observer.start();
 }
 
@@ -28,9 +28,9 @@ function stopHttpObserver(){
 	observer = null;
 }
 
-function httpRequestObserver(){}
+function HttpRequestObserver(){}
 
-httpRequestObserver.prototype = {
+HttpRequestObserver.prototype = {
 	
 	start: function(){
 		this.requests = new Array();
@@ -50,11 +50,21 @@ httpRequestObserver.prototype = {
 	},
 	
 	onModifyRequest: function(oHttp){
-		var uri = oHttp.URI.asciiSpec;
 		
-		//if(uri.match('^http://www.facebook.com/ajax/updatestatus.php')){
-			Firebug.Console.log(uri);
-		//}
+		try {
+			
+			var uri = oHttp.URI.asciiSpec;
+		
+			if( uri.match('^https://www.facebook.com/ajax/updatestatus.php') ||
+				uri.match('^http://www.facebook.com/ajax/updatestatus.php') ){
+				Firebug.Console.log(uri);
+				//window.alert(uri);
+			}
+			
+		}catch(e){
+			Components.utils.reportError("onModifyRequest:general error");
+			Components.utils.reportError(e);
+		}
 	},
 	
 	QueryInterface: function(iid){
@@ -81,6 +91,18 @@ httpRequestObserver.prototype = {
 	}
 	
 }
+
+/*HeaderInfoVisitor = function(oHttp){
+	this.oHttp = oHttp;
+	this.headers = new Array();
+	this.httpHeaders = new Array();
+}
+
+HeaderInfoVisitor.prototype = {
+	
+	
+	
+}*/
 
 /*function httpRequestObserver(){
 	Firebug.Console.log("start up observer");
