@@ -46,59 +46,76 @@ HttpRequestObserver.prototype = {
 		if (topic == 'http-on-modify-request') {
 			subject.QueryInterface(Components.interfaces.nsIHttpChannel);
 			this.onModifyRequest(subject);
+		}else if (topic == 'http-on-examine-response'){
+			subject.QueryInterface(Components.interfaces.nsIHttpChannel);
+			this.onExamineResponse(subject);
 		}
+	},
+	
+	onExamineResponse: function(oHttp){
+		
+		var uri = oHttp.URI.asciiSpec;
+		
+		if( uri.match('^https://www.facebook.com/ajax/updatestatus.php') ||
+			uri.match('^http://www.facebook.com/ajax/updatestatus.php') ){
+			Firebug.Console.log("Request response received: " + uri);
+			
+			var visitor = new HeaderInfoVisitor(oHttp);
+			var request = visitor.visitRequest();
+			
+			var newListener = new TracingListener();
+			oHttp.QueryInterface(Components.interfaces.nsITraceableChannel);
+			newListener.originalListener = oHttp.setNewListener(newListener);
+			
+			/*var newListener = new BindTracingListener(uri, request);
+			oHttp.QueryInterface(Ci.nsITraceableChannel);
+			newListener.originalListener = oHttp.setNewListener(newListener);*/
+		}
+		
 	},
 	
 	onModifyRequest: function(oHttp){
 		
-		try {
-			
-			var uri = oHttp.URI.asciiSpec;
+		var uri = oHttp.URI.asciiSpec;
 		
-			if( uri.match('^https://www.facebook.com/ajax/updatestatus.php') ||
-				uri.match('^http://www.facebook.com/ajax/updatestatus.php') ){
-				Firebug.Console.log(uri);
-				
-				var visitor = new HeaderInfoVisitor(oHttp);
-				var requestHeaders = visitor.visitRequest();
-				var postData = visitor.getPostData();
-				
-				var postArray = URLToArray(postData.body);
-				
-				//Firebug.Console.log(postArray["xhpc_message"]);
-				var encrypted = CryptoJS.AES.encrypt(postArray["xhpc_message"], "Secret Passphrase");
-				//Firebug.Console.log(encrypted);
-				
-				postArray["xhpc_message"] = encrypted.toString();
-				postArray["xhpc_message_text"] = encrypted.toString();
-				
-				postData = ArrayToURL(postArray);
-				
-				var tmp = Components.classes["@mozilla.org/io/string-input-stream;1"].createInstance(Components.interfaces.nsIStringInputStream);
-				if ("data" in tmp) { //the API has version differences- this will determine which version we're using
-					// Gecko 1.9 or newer
-					tmp.data = postData;
-				}else {
-					// 1.8 or older
-					tmp.setData(postData, postData.length);
-				}
-				try {
-					// Must change HttpChannel to UploadChannel to be able to access post data
-					oHttp.QueryInterface(Components.interfaces.nsIUploadChannel);
-					oHttp.setUploadStream(tmp, "application/x-www-form-urlencoded;charset=utf-8", -1);//replace default stream with modified "tmp"
-					oHttp.requestMethod = "POST";
-					oHttp.QueryInterface(Components.interfaces.nsIHttpChannel);
-				} catch(e) {
-					Components.utils.reportError("onModifyRequest:error setting request upload stream for edit");
-					Components.utils.reportError(e);
-				}
-				Components.utils.reportError("mutate stream changed!");	
-				
+		if( uri.match('^https://www.facebook.com/ajax/updatestatus.php') ||
+			uri.match('^http://www.facebook.com/ajax/updatestatus.php') ){
+			Firebug.Console.log("Request being sent: " + uri);
+			
+			var visitor = new HeaderInfoVisitor(oHttp);
+			var requestHeaders = visitor.visitRequest();
+			var postData = visitor.getPostData();
+			
+			var postArray = URLToArray(postData.body);
+			
+			//Firebug.Console.log(postArray["xhpc_message"]);
+			var encrypted = CryptoJS.AES.encrypt(postArray["xhpc_message"], "Secret Passphrase");
+			//Firebug.Console.log(encrypted);
+			
+			postArray["xhpc_message"] = encrypted.toString();
+			postArray["xhpc_message_text"] = encrypted.toString();
+			
+			postData = ArrayToURL(postArray);
+			
+			var tmp = Components.classes["@mozilla.org/io/string-input-stream;1"].createInstance(Components.interfaces.nsIStringInputStream);
+			if ("data" in tmp) { //the API has version differences- this will determine which version we're using
+				// Gecko 1.9 or newer
+				tmp.data = postData;
+			}else {
+				// 1.8 or older
+				tmp.setData(postData, postData.length);
+			}
+			try {
+				// Must change HttpChannel to UploadChannel to be able to access post data
+				oHttp.QueryInterface(Components.interfaces.nsIUploadChannel);
+				oHttp.setUploadStream(tmp, "application/x-www-form-urlencoded;charset=utf-8", -1);//replace default stream with modified "tmp"
+				oHttp.requestMethod = "POST";
+				oHttp.QueryInterface(Components.interfaces.nsIHttpChannel);
+			} catch(e) {
+				Components.utils.reportError("onModifyRequest:error setting request upload stream for edit");
+				Components.utils.reportError(e);
 			}
 			
-		}catch(e){
-			Components.utils.reportError("onModifyRequest:general error");
-			Components.utils.reportError(e);
 		}
 	},
 	
@@ -116,13 +133,96 @@ HttpRequestObserver.prototype = {
 		.getService(Components.interfaces.nsIObserverService);
 		
 		observerService.addObserver(this, "http-on-modify-request", false);
+		observerService.addObserver(this, "http-on-examine-response", false);
 	},
 	
 	removeFromListener: function(){
 		var observerService = Components.classes["@mozilla.org/observer-service;1"]
 		.getService(Components.interfaces.nsIObserverService);
 		
+		observerService.removeObserver(this, "http-on-examine-response");
 		observerService.removeObserver(this, "http-on-modify-request");
+	}
+	
+}
+
+function TracingListener(){}
+
+TracingListener.prototype = {
+	
+	originalListerner: null,
+	receivedData: null,
+	
+	onStartRequest: function(request, context){
+		this.receivedData = [];
+		this.originalListener.onStartRequest(request, context);
+	},
+	
+	onDataAvailable: function(request, context, inputStream, offset, count){
+		
+		var binaryInputStream = this.CCIN("@mozilla.org/binaryinputstream;1",
+									 "nsIBinaryInputStream");
+		binaryInputStream.setInputStream(inputStream);
+		
+		var storageStream = this.CCIN("@mozilla.org/storagestream;1",
+								 "nsIStorageStream");
+		storageStream.init(8192, count, null);
+		
+		var binaryOutputStream = this.CCIN("@mozilla.org/binaryoutputstream;1",  
+									  "nsIBinaryOutputStream");
+		binaryOutputStream.setOutputStream(storageStream.getOutputStream(0));
+		
+		// Copy received data as they come.
+		var data = binaryInputStream.readBytes(count);
+		this.receivedData.push(data);
+		binaryOutputStream.writeBytes(data, count);
+		
+		this.originalListener.onDataAvailable(request, 
+											context,
+											storageStream.newInputStream(0), 
+											offset, 
+											count);
+		
+	},
+	
+	onStopRequest: function(request, context, statusCode){
+		
+		var responseSource = this.receivedData.join();
+		var stripped = responseSource.substring(9);
+		var jsonProcessedData = JSON.parse(stripped);
+		var html = jsonProcessedData.jsmods.markup[0][1].__html;
+		
+		//Firebug.Console.log(html);
+		
+		try {
+			Firebug.Console.log("Here: " + jQuery(('<div></div>').append(html).find('span')));
+			Firebug.Console.log("on the try");
+			//QueryInterface into HttpChannel to access originalURI and requestMethod properties
+			request.QueryInterface(Components.interfaces.nsIHttpChannel);
+			
+			
+			
+		}catch(e){
+			Components.utils.reportError("onStopRequest:error");
+			Components.utils.reportError(e);
+		}
+		
+		this.originalListener.onStopRequest(request, 
+											context, 
+											statusCode); 
+		
+	},
+	
+	QueryInterface: function(iid){
+		if (iid.equals(Components.interfaces.nsIStreamListener) ||
+			iid.equals(Components.interfaces.nsISupports)){
+			return this;
+		}
+		throw Components.results.NS_NOINTERFACE;
+	},
+	
+	CCIN: function(cName, ifaceName){
+		return Components.classes[cName].createInstance(Components.interfaces[ifaceName]);
 	}
 	
 }
@@ -331,49 +431,31 @@ HeaderInfoVisitor.prototype =  {
 	}
 };
 
-/*function httpRequestObserver(){
-	Firebug.Console.log("start up observer");
-	this.register();
-};
-
-httpRequestObserver.prototype = {
-	
-	observe: function(subject, topic, data){
-		Firebug.Console.log("observed");
-		if(topic == "http-on-modify-request"){
-			Firebug.Console.log("caught one");
-		}else{
-			Firebug.Console.log("kinda");
-		}
-	},
-	
-	register: function(){
-		var observerService = Cc["@mozilla.org/observer-service;1"]
-			.getService(Ci.nsIObserverService);
-		observerService.addObserver(this, "http-on-modify-request", false);
-	},
-	
-	unregister: function(){
-		var observerService = Cc["@mozilla.org/observer-service;1"]
-			.getService(Ci.nsIObserverService);
-		observerService.removeObserver(this, "http-on-modify-request");
-	},
-	
-	QueryInterface: function(iid){
-		if (idd.equals(Ci.nsISupports) ||
-			idd.equals(Ci.nsIObserver)){
-			return this;
-		}
-		throw Components.results.NS_NOINTERFACE;
-	}
-	
-};*/
-
 function pageLoad(event){
 	if (event.originalTarget instanceof HTMLDocument) {
 		var win = event.originalTarget.defaultView;
 		//Make sure it's not inside an iframe
 		if (!win.frameElement) {
+			var doc = content.document;
+			
+			jQuery.noConflict();
+			$ = function(selector,context) {
+				return new jQuery.fn.init(selector,context||example.doc);
+			};
+			$.fn = $.prototype = jQuery.fn;
+			
+			example = new function(){};
+			example.log = function() {
+				Firebug.Console.logFormatted(arguments,null,"log");
+			};
+			
+			//doc.location.href
+			// Check if already loaded
+			if (doc.getElementById("plugin-example")) return;
+			
+			// Setup
+			this.win = content.window;
+			this.doc = content.document;
 			Firebug.Console.log("page loaded");
 			//observer = new httpRequestObserver();
 			startHttpObserver();
@@ -387,67 +469,3 @@ window.addEventListener("load", function () {
 	gBrowser.addEventListener("load", pageLoad, true);
 }, false);
 
-/*function cryptInit(myKey){
-	AES_Init();
-	var key = string2Bin(myKey);
-	AES_ExpandKey(key);
-	return key;
-}
-
-function encrypt(inputStr, key){
-	var block = string2Bin(inputStr);
-	AES_Encrypt(block, key);
-	var data = bin2String(block);
-	return data;
-}
-
-function decrypt(inputStr, key){
-	var block = string2Bin(inputStr);
-	AES_Decrypt(block, key);
-	var data = bin2String(block);
-	return data;
-}
-
-function encryptLongStr(myStr, key){
-	if(myStr.length > 16){
-		var data = "";
-		for(var i=0; i<myStr.length; i+=16){
-			data+=encrypt(myStr.substr(i,16), key);
-		}
-		return data;
-	}else{
-		return encrypt(myStr, key);
-	}
-}
-
-function decryptLongStr(myStr, key){
-	if(myStr.length > 16){
-		var data = "";
-		for(var i=0; i<myStr.length; i+=16){
-			data+=decrypt(myStr.substr(i,16), key)
-		}
-		return data;
-	}else{
-		return decrypt(myStr, key);
-	}
-}
-
-function cryptFinish(){AES_Done();}
-function bin2String(array) {
-var result = "";
-for (var i = 0; i < array.length; i++) {
-result += String.fromCharCode(parseInt(array[i], 2));
-}
-return result;
-}
-function string2Bin(str) {
-var result = [];
-for (var i = 0; i < str.length; i++) {
-result.push(str.charCodeAt(i));
-}
-return result;
-}
-
-function bin2String(array) {
-return String.fromCharCode.apply(String, array);
-}*/

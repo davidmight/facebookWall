@@ -4,7 +4,7 @@
 <overlay id="sample" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
 					 xmlns:html="http://www.w3.org/1999/xhtml"
 					 onunload="stopHttpObserver()">
-	<script src="jquery-1.9.1.min.js"/>
+	<script type="application/x-javascript" src="jquery-1.9.1.min.js" />
 	<!--<script src="jsaes.js"/>-->
 	<script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/aes.js"/>
 	<script src="overlay.js"/>
