@@ -1,0 +1,1 @@
+pref("extensions.facebookwall.autorun", false);

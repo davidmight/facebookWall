@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<?xml-stylesheet href="chrome://helloworld/skin/overlay.css" type="text/css"?>
+<!DOCTYPE overlay SYSTEM "chrome://helloworld/locale/overlay.dtd">
+<overlay id="facebookwall" xmlns="http://www.mozilla.org/keymaster/gatekeeper/there.is.only.xul"
+					 xmlns:html="http://www.w3.org/1999/xhtml"
+					 onunload="facebookWall.stopHttpObserver()">
+	<script type="application/x-javascript" src="jquery-1.9.1.min.js" />
+	<script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/aes.js"/>
+	<script src="overlay.js"/>
+	
+	<menupopup id="menu_ToolsPopup">
+		<menu id="sample_menu" label="Encryption">
+			<menupopup>
+				<menuitem label="Encrypt" oncommand="facebookWall.BrowserOverlay.sayHello(event);" />
+				<menuitem label="Decrypt" oncommand="facebookWall.BrowserOverlay.sayHello(event);" />
+			</menupopup>
+		</menu>
+	</menupopup>
+	
+</overlay>
