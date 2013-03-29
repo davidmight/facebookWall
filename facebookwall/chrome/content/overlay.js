@@ -161,30 +161,32 @@ facebookWall.TracingListener.prototype = {
 									 "nsIBinaryInputStream");
 		binaryInputStream.setInputStream(inputStream);
 		
-		var storageStream = this.CCIN("@mozilla.org/storagestream;1",
+		/*var storageStream = this.CCIN("@mozilla.org/storagestream;1",
 								 "nsIStorageStream");
 		storageStream.init(8192, count, null);
 		
 		var binaryOutputStream = this.CCIN("@mozilla.org/binaryoutputstream;1",  
 									  "nsIBinaryOutputStream");
-		binaryOutputStream.setOutputStream(storageStream.getOutputStream(0));
+		binaryOutputStream.setOutputStream(storageStream.getOutputStream(0));*/
 		
 		// Copy received data as they come.
 		var data = binaryInputStream.readBytes(count);
+		//Firebug.Console.log(data);
 		this.receivedData.push(data);
-		binaryOutputStream.writeBytes(data, count);
+		/*binaryOutputStream.writeBytes(data, count);
 		
 		this.originalListener.onDataAvailable(request, 
 											context,
 											storageStream.newInputStream(0), 
 											offset, 
-											count);
+											count);*/
 		
 	},
 	
 	onStopRequest: function(request, context, statusCode){
 		
 		var responseSource = this.receivedData.join();
+		var prepend = responseSource.substring(0, 9);
 		var stripped = responseSource.substring(9);
 		var jsonProcessedData = JSON.parse(stripped);
 		var html = jsonProcessedData.jsmods.markup[0][1].__html;
@@ -200,14 +202,31 @@ facebookWall.TracingListener.prototype = {
 			tempDiv.innerHTML = html;
 			var span = jQuery(tempDiv).find('span.userContent');
 			var rawText = jQuery(span).text();
-			Firebug.Console.log(rawText);
+			//Firebug.Console.log(rawText);
 			
 			var decrypted = CryptoJS.AES.decrypt(rawText, "Secret Passphrase").toString(CryptoJS.enc.Utf8);
-			Firebug.Console.log(decrypted);
+			//Firebug.Console.log(decrypted);
+			
+			span = jQuery(span).text(decrypted);
+			var newJsonData = jsonProcessedData;
+			newJsonData.jsmods.markup[0][1].__html = tempDiv.innerHTML;
+			stripped = JSON.stringify(newJsonData);
+			
+			var newResponseBody = prepend.concat(stripped);
+			
+			//Firebug.Console.log(newResponseBody);
 			
 			request.QueryInterface(Components.interfaces.nsIHttpChannel);
 			
+			var storageStream = this.CCIN("@mozilla.org/storagestream;1", "nsIStorageStream");
+			storageStream.init(8192, newResponseBody.length, null);
+			var binaryOutputStream = this.CCIN("@mozilla.org/binaryoutputstream;1","nsIBinaryOutputStream");
+			binaryOutputStream.setOutputStream(storageStream.getOutputStream(0));
 			
+			binaryOutputStream.writeBytes(newResponseBody, newResponseBody.length);
+			
+			this.originalListener.onDataAvailable(request, context, storageStream.newInputStream(0),
+						0, newResponseBody.length);
 			
 		}catch(e){
 			Components.utils.reportError("onStopRequest:error");
