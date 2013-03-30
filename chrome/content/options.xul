@@ -7,8 +7,8 @@
 	
 	<prefpane label="Facebook Wall Preferences">
 		<preferences>
-			<preference id="facebook-wall-encrypt" name="extensions.facebookwall.encrypt" type="bool"/>
-			<preference id="facebook-wall-decrypt" name="extensions.facebookwall.decrypt" type="bool"/>
+			<preference id="facebook-wall-encrypt" name="extensions.facebookWall.encrypt" type="bool"/>
+			<preference id="facebook-wall-decrypt" name="extensions.facebookWall.decrypt" type="bool"/>
 		</preferences>
 		
 		<groupbox>

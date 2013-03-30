@@ -4,6 +4,11 @@ if(!facebookWall){
 
 var observer = null;
 var doc = null;
+var prefManager = null;
+
+facebookWall.init = function(){
+	prefManager = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefBranch);
+}
 
 facebookWall.BrowserOverlay = {
 	
@@ -16,6 +21,7 @@ facebookWall.BrowserOverlay = {
 }
 
 facebookWall.startHttpObserver = function(){
+	//Firebug.Console.log("Encrypt: " + prefManager.getBoolPref("extensions.facebookWall.encrypt"));
 	observer = new facebookWall.HttpRequestObserver();
 	observer.start();
 }
@@ -54,8 +60,9 @@ facebookWall.HttpRequestObserver.prototype = {
 		
 		var uri = oHttp.URI.asciiSpec;
 		
-		if( uri.match('^https://www.facebook.com/ajax/updatestatus.php') ||
-			uri.match('^http://www.facebook.com/ajax/updatestatus.php') ){
+		if( (uri.match('^https://www.facebook.com/ajax/updatestatus.php') ||
+			 uri.match('^http://www.facebook.com/ajax/updatestatus.php')) &&
+			 prefManager.getBoolPref("extension.facebookWall.encrypt") == true){
 			Firebug.Console.log("Request response received: " + uri);
 			
 			var visitor = new facebookWall.HeaderInfoVisitor(oHttp);
@@ -76,8 +83,10 @@ facebookWall.HttpRequestObserver.prototype = {
 		
 		var uri = oHttp.URI.asciiSpec;
 		
-		if( uri.match('^https://www.facebook.com/ajax/updatestatus.php') ||
-			uri.match('^http://www.facebook.com/ajax/updatestatus.php') ){
+		if( (uri.match('^https://www.facebook.com/ajax/updatestatus.php') ||
+			 uri.match('^http://www.facebook.com/ajax/updatestatus.php')) &&
+			prefManager.getBoolPref("extensions.facebookWall.decrypt") == true){
+			
 			Firebug.Console.log("Request being sent: " + uri);
 			
 			var visitor = new facebookWall.HeaderInfoVisitor(oHttp);
@@ -473,6 +482,7 @@ facebookWall.pageLoad = function(event){
 window.addEventListener("load", function () {
 	// Add a callback to be run every time a document loads.
 	// note that this includes frames/iframes within the document
+	facebookWall.init();
 	gBrowser.addEventListener("load", facebookWall.pageLoad, true);
 }, false);
 

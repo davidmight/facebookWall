@@ -1,2 +1,2 @@
-pref("extensions.facebookwall.encrypt", true);
-pref("extensions.facebookwall.decrypt", true);
+pref("extensions.facebookWall.encrypt", true);
+pref("extensions.facebookWall.decrypt", true);

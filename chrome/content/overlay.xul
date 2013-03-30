@@ -8,11 +8,19 @@
 	<script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/aes.js"/>
 	<script src="overlay.js"/>
 	
+	<preferences>
+		<preference id="facebook-wall-encrypt" name="extensions.facebookWall.encrypt" type="bool"/>
+		<preference id="facebook-wall-decrypt" name="extensions.facebookWall.decrypt" type="bool"/>
+	</preferences>
+	
 	<menupopup id="menu_ToolsPopup">
-		<menu id="sample_menu" label="Encryption">
+		<menu id="sample_menu" label="Facebook Wall">
 			<menupopup>
-				<menuitem label="Encrypt" oncommand="facebookWall.BrowserOverlay.sayHello(event);" />
-				<menuitem label="Decrypt" oncommand="facebookWall.BrowserOverlay.sayHello(event);" />
+				<!--<menuitem label="Encrypt" oncommand="facebookWall.BrowserOverlay.sayHello(event);" />
+				<menuitem label="Decrypt" oncommand="facebookWall.BrowserOverlay.sayHello(event);" />-->
+				
+				<checkbox label="Encrypt" preference="facebook-wall-encrypt"/>
+				<checkbox label="Decrypt" preference="facebook-wall-decrypt"/>
 			</menupopup>
 		</menu>
 	</menupopup>
