@@ -1,8 +1,0 @@
-content     facebookwall    chrome/content/
-content     facebookwall    chrome/content/ contentaccessible=yes
-overlay chrome://browser/content/browser.xul chrome://facebookwall/content/overlay.xul
-
-locale	facebookwall	en-US	locale/en-US/
-
-skin	facebookwall	classic/1.0	skin/
-style	chrome://global/content/customizeToolbar.xul	chrome://facebookwall/skin/overlay.css
