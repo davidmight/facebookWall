@@ -5,8 +5,10 @@ if(!facebookWall){
 var observer = null;
 var doc = null;
 var prefManager = null;
+var tabBrowser = null;
 
 facebookWall.init = function(){
+	//tabBrowser = document.getElementById("content");
 	prefManager = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefBranch);
 }
 
@@ -17,6 +19,18 @@ facebookWall.BrowserOverlay = {
 		
 		window.alert(message);
 	}
+	
+}
+
+facebookWall.checkWall = function(){
+	Firebug.Console.log("hey");
+	
+		
+		/*jQuery("li").each(function( index ) {
+			Firebug.Console.log( index + ": ");
+		});*/
+		//Firebug.Console.log("hello");
+		
 	
 }
 
@@ -60,17 +74,24 @@ facebookWall.HttpRequestObserver.prototype = {
 		
 		var uri = oHttp.URI.asciiSpec;
 		
-		if( (uri.match('^https://www.facebook.com/ajax/updatestatus.php') ||
-			 uri.match('^http://www.facebook.com/ajax/updatestatus.php')) &&
-			 prefManager.getBoolPref("extension.facebookWall.encrypt") == true){
+		if (uri.match('^https://www.facebook.com/ajax/updatestatus.php') ||
+			uri.match('^http://www.facebook.com/ajax/updatestatus.php')) {
+			
 			Firebug.Console.log("Request response received: " + uri);
 			
-			var visitor = new facebookWall.HeaderInfoVisitor(oHttp);
-			var request = visitor.visitRequest();
-			
-			var newListener = new facebookWall.TracingListener();
-			oHttp.QueryInterface(Components.interfaces.nsITraceableChannel);
-			newListener.originalListener = oHttp.setNewListener(newListener);
+			if(prefManager.getBoolPref("extensions.facebookWall.decrypt")){
+				Firebug.Console.log("Decryption enabled");
+				
+				var visitor = new facebookWall.HeaderInfoVisitor(oHttp);
+				var request = visitor.visitRequest();
+				
+				var newListener = new facebookWall.TracingListener();
+				oHttp.QueryInterface(Components.interfaces.nsITraceableChannel);
+				newListener.originalListener = oHttp.setNewListener(newListener);
+				
+			}else{
+				Firebug.Console.log("Not Decrypting");
+			}
 			
 			/*var newListener = new BindTracingListener(uri, request);
 			oHttp.QueryInterface(Ci.nsITraceableChannel);
@@ -83,43 +104,49 @@ facebookWall.HttpRequestObserver.prototype = {
 		
 		var uri = oHttp.URI.asciiSpec;
 		
-		if( (uri.match('^https://www.facebook.com/ajax/updatestatus.php') ||
-			 uri.match('^http://www.facebook.com/ajax/updatestatus.php')) &&
-			prefManager.getBoolPref("extensions.facebookWall.decrypt") == true){
+		if (uri.match('^https://www.facebook.com/ajax/updatestatus.php') ||
+			uri.match('^http://www.facebook.com/ajax/updatestatus.php')) {
 			
 			Firebug.Console.log("Request being sent: " + uri);
 			
-			var visitor = new facebookWall.HeaderInfoVisitor(oHttp);
-			var requestHeaders = visitor.visitRequest();
-			var postData = visitor.getPostData();
-			
-			var postArray = facebookWall.URLToArray(postData.body);
-			
-			//Firebug.Console.log(postArray["xhpc_message"]);
-			var encrypted = CryptoJS.AES.encrypt(postArray["xhpc_message"], "Secret Passphrase");
-			
-			postArray["xhpc_message"] = encrypted.toString();
-			postArray["xhpc_message_text"] = encrypted.toString();
-			
-			postData = facebookWall.ArrayToURL(postArray);
-			
-			var tmp = Components.classes["@mozilla.org/io/string-input-stream;1"].createInstance(Components.interfaces.nsIStringInputStream);
-			if ("data" in tmp) { //the API has version differences- this will determine which version we're using
-				// Gecko 1.9 or newer
-				tmp.data = postData;
-			}else {
-				// 1.8 or older
-				tmp.setData(postData, postData.length);
-			}
-			try {
-				// Must change HttpChannel to UploadChannel to be able to access post data
-				oHttp.QueryInterface(Components.interfaces.nsIUploadChannel);
-				oHttp.setUploadStream(tmp, "application/x-www-form-urlencoded;charset=utf-8", -1);//replace default stream with modified "tmp"
-				oHttp.requestMethod = "POST";
-				oHttp.QueryInterface(Components.interfaces.nsIHttpChannel);
-			} catch(e) {
-				Components.utils.reportError("onModifyRequest:error setting request upload stream for edit");
-				Components.utils.reportError(e);
+			if(prefManager.getBoolPref("extensions.facebookWall.encrypt")){
+				Firebug.Console.log("Encryption enabled");
+				
+				var visitor = new facebookWall.HeaderInfoVisitor(oHttp);
+				var requestHeaders = visitor.visitRequest();
+				var postData = visitor.getPostData();
+				
+				var postArray = facebookWall.URLToArray(postData.body);
+				
+				//Firebug.Console.log(postArray["xhpc_message"]);
+				var encrypted = CryptoJS.AES.encrypt(postArray["xhpc_message"], "Secret Passphrase");
+				
+				postArray["xhpc_message"] = encrypted.toString();
+				postArray["xhpc_message_text"] = encrypted.toString();
+				
+				postData = facebookWall.ArrayToURL(postArray);
+				
+				var tmp = Components.classes["@mozilla.org/io/string-input-stream;1"].createInstance(Components.interfaces.nsIStringInputStream);
+				if ("data" in tmp) { //the API has version differences- this will determine which version we're using
+					// Gecko 1.9 or newer
+					tmp.data = postData;
+				}else {
+					// 1.8 or older
+					tmp.setData(postData, postData.length);
+				}
+				try {
+					// Must change HttpChannel to UploadChannel to be able to access post data
+					oHttp.QueryInterface(Components.interfaces.nsIUploadChannel);
+					oHttp.setUploadStream(tmp, "application/x-www-form-urlencoded;charset=utf-8", -1);//replace default stream with modified "tmp"
+					oHttp.requestMethod = "POST";
+					oHttp.QueryInterface(Components.interfaces.nsIHttpChannel);
+				} catch(e) {
+					Components.utils.reportError("onModifyRequest:error changing the post values");
+					Components.utils.reportError(e);
+				}
+				
+			}else{
+				Firebug.Console.log("Not Encrypting");
 			}
 			
 		}
@@ -195,15 +222,14 @@ facebookWall.TracingListener.prototype = {
 	
 	onStopRequest: function(request, context, statusCode){
 		
-		var responseSource = this.receivedData.join();
-		var prepend = responseSource.substring(0, 9);
-		var stripped = responseSource.substring(9);
-		var jsonProcessedData = JSON.parse(stripped);
-		var html = jsonProcessedData.jsmods.markup[0][1].__html;
-		
-		//Firebug.Console.log(html);
-		
 		try {
+			var responseSource = this.receivedData.join();
+			var prepend = responseSource.substring(0, 9);
+			var stripped = responseSource.substring(9);
+			var jsonProcessedData = JSON.parse(stripped);
+			var html = jsonProcessedData.jsmods.markup[0][1].__html;
+			
+			//Firebug.Console.log(html);
 			
 			var tempDiv = doc.createElement('div');
 			tempDiv.innerHTML = html;
@@ -469,10 +495,12 @@ facebookWall.pageLoad = function(event){
 	if (event.originalTarget instanceof HTMLDocument) {
 		var win = event.originalTarget.defaultView;
 		doc = event.originalTarget;
+		//Firebug.Console.log(doc);
 		//Make sure it's not inside an iframe
 		if (!win.frameElement) {
 			
 			Firebug.Console.log("page loaded");
+			facebookWall.checkWall();
 			facebookWall.startHttpObserver();
 			
 		}
