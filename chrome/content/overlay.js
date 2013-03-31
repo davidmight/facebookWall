@@ -25,12 +25,28 @@ facebookWall.BrowserOverlay = {
 facebookWall.checkWall = function(tabBody){
 	Firebug.Console.log("hey");
 	
-	//var homeStream = jQuery(tabBody).find('#home_stream');
-	
-	//Firebug.Console.log(jQuery(tabBody).find('#home_stream'));
-	/*jQuery('#home_stream').each(function( index ) {
-		Firebug.Console.log( index + ": ");
-	});*/
+	if(tabBody != null && tabBody != undefined){
+		if(prefManager.getBoolPref("extensions.facebookWall.decrypt")){
+			var homeStream = jQuery(tabBody).find('#home_stream');
+			
+			//Firebug.Console.log(homeStream);
+			/*jQuery(tabBody).find('#home_stream li').each(function(index){
+				Firebug.Console.log( index + ": " + jQuery(this).find('span.userContent').text());
+			});*/
+			jQuery(tabBody).find('span.userContent').each(function(index){
+				Firebug.Console.log( index + ": " + jQuery(this).text());
+				var encrypted = jQuery(this).text();
+				var decrypted = CryptoJS.AES.decrypt(encrypted, "Secret Passphrase").toString(CryptoJS.enc.Utf8);
+				Firebug.Console.log(decrypted);
+				jQuery(this).fadeOut("slow", function() {
+					jQuery(this).text(decrypted);
+					/*jQuery(this).fadeIn("slow");*/
+					jQuery(this).css("display", "inline");
+				});
+				
+			});
+		}
+	}
 		
 	
 }
