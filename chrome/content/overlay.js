@@ -23,7 +23,6 @@ facebookWall.BrowserOverlay = {
 }
 
 facebookWall.checkWall = function(tabBody){
-	Firebug.Console.log("hey");
 	
 	if(tabBody != null && tabBody != undefined){
 		if(prefManager.getBoolPref("extensions.facebookWall.decrypt")){
@@ -34,15 +33,17 @@ facebookWall.checkWall = function(tabBody){
 				Firebug.Console.log( index + ": " + jQuery(this).find('span.userContent').text());
 			});*/
 			jQuery(tabBody).find('span.userContent').each(function(index){
-				Firebug.Console.log( index + ": " + jQuery(this).text());
+				//Firebug.Console.log( index + ": " + jQuery(this).text());
 				var encrypted = jQuery(this).text();
 				var decrypted = CryptoJS.AES.decrypt(encrypted, "Secret Passphrase").toString(CryptoJS.enc.Utf8);
-				Firebug.Console.log(decrypted);
-				jQuery(this).fadeOut("slow", function() {
-					jQuery(this).text(decrypted);
-					/*jQuery(this).fadeIn("slow");*/
-					jQuery(this).css("display", "inline");
-				});
+				//Firebug.Console.log(decrypted);
+					if(decrypted != ""){
+						jQuery(this).fadeOut("slow", function() {
+							jQuery(this).text(decrypted);
+							/*jQuery(this).fadeIn("slow");*/
+							jQuery(this).css("display", "inline");
+						});
+					}
 				
 			});
 		}
@@ -243,6 +244,7 @@ facebookWall.TracingListener.prototype = {
 			var responseSource = this.receivedData.join();
 			var prepend = responseSource.substring(0, 9);
 			var stripped = responseSource.substring(9);
+			Firebug.Console.log(stripped);
 			var jsonProcessedData = JSON.parse(stripped);
 			var html = jsonProcessedData.jsmods.markup[0][1].__html;
 			
@@ -257,27 +259,28 @@ facebookWall.TracingListener.prototype = {
 			var decrypted = CryptoJS.AES.decrypt(rawText, "Secret Passphrase").toString(CryptoJS.enc.Utf8);
 			//Firebug.Console.log(decrypted);
 			
-			span = jQuery(span).text(decrypted);
-			var newJsonData = jsonProcessedData;
-			newJsonData.jsmods.markup[0][1].__html = tempDiv.innerHTML;
-			
-			stripped = JSON.stringify(newJsonData);
-			
-			var newResponseBody = prepend.concat(stripped);
-			
-			//Firebug.Console.log(newResponseBody);
-			
-			request.QueryInterface(Components.interfaces.nsIHttpChannel);
-			
-			var storageStream = this.CCIN("@mozilla.org/storagestream;1", "nsIStorageStream");
-			storageStream.init(8192, newResponseBody.length, null);
-			var binaryOutputStream = this.CCIN("@mozilla.org/binaryoutputstream;1","nsIBinaryOutputStream");
-			binaryOutputStream.setOutputStream(storageStream.getOutputStream(0));
-			
-			binaryOutputStream.writeBytes(newResponseBody, newResponseBody.length);
-			
-			this.originalListener.onDataAvailable(request, context, storageStream.newInputStream(0),
-						0, newResponseBody.length);
+			if(decrypted != ""){
+				span = jQuery(span).text(decrypted);
+				var newJsonData = jsonProcessedData;
+				newJsonData.jsmods.markup[0][1].__html = tempDiv.innerHTML;
+				stripped = JSON.stringify(newJsonData);
+				
+				var newResponseBody = prepend.concat(stripped);
+				
+				//Firebug.Console.log(newResponseBody);
+				
+				request.QueryInterface(Components.interfaces.nsIHttpChannel);
+				
+				var storageStream = this.CCIN("@mozilla.org/storagestream;1", "nsIStorageStream");
+				storageStream.init(8192, newResponseBody.length, null);
+				var binaryOutputStream = this.CCIN("@mozilla.org/binaryoutputstream;1","nsIBinaryOutputStream");
+				binaryOutputStream.setOutputStream(storageStream.getOutputStream(0));
+				
+				binaryOutputStream.writeBytes(newResponseBody, newResponseBody.length);
+				
+				this.originalListener.onDataAvailable(request, context, storageStream.newInputStream(0),
+							0, newResponseBody.length);
+			}
 			
 		}catch(e){
 			Components.utils.reportError("onStopRequest:error");
