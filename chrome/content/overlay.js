@@ -5,7 +5,7 @@ if(!facebookWall){
 var observer = null;
 var doc = null;
 var prefManager = null;
-var tabBrowser = null;
+//var tabBrowser = null;
 
 facebookWall.init = function(){
 	//tabBrowser = document.getElementById("content");
@@ -22,14 +22,15 @@ facebookWall.BrowserOverlay = {
 	
 }
 
-facebookWall.checkWall = function(){
+facebookWall.checkWall = function(tabBody){
 	Firebug.Console.log("hey");
 	
-		
-		/*jQuery("li").each(function( index ) {
-			Firebug.Console.log( index + ": ");
-		});*/
-		//Firebug.Console.log("hello");
+	//var homeStream = jQuery(tabBody).find('#home_stream');
+	
+	//Firebug.Console.log(jQuery(tabBody).find('#home_stream'));
+	/*jQuery('#home_stream').each(function( index ) {
+		Firebug.Console.log( index + ": ");
+	});*/
 		
 	
 }
@@ -495,12 +496,13 @@ facebookWall.pageLoad = function(event){
 	if (event.originalTarget instanceof HTMLDocument) {
 		var win = event.originalTarget.defaultView;
 		doc = event.originalTarget;
-		//Firebug.Console.log(doc);
+		var tabBody = gBrowser.contentDocument.getElementById("facebook");
+		//Firebug.Console.log(gBrowser.contentDocument.getElementById("facebook"));
 		//Make sure it's not inside an iframe
 		if (!win.frameElement) {
 			
 			Firebug.Console.log("page loaded");
-			facebookWall.checkWall();
+			facebookWall.checkWall(tabBody);
 			facebookWall.startHttpObserver();
 			
 		}
