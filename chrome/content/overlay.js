@@ -8,8 +8,9 @@ var prefManager = null;
 //var tabBrowser = null;
 
 facebookWall.init = function(){
-	//tabBrowser = document.getElementById("content");
+	//Firebug.Console.log("initialising");
 	prefManager = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefBranch);
+	
 }
 
 facebookWall.BrowserOverlay = {
@@ -23,6 +24,15 @@ facebookWall.BrowserOverlay = {
 }
 
 facebookWall.checkWall = function(tabBody){
+	var cookieMgr = Components.classes["@mozilla.org/cookiemanager;1"]
+					  .getService(Components.interfaces.nsICookieManager);
+	 
+	for (var e = cookieMgr.enumerator; e.hasMoreElements();) {
+		var cookie = e.getNext().QueryInterface(Components.interfaces.nsICookie);
+		if(cookie.host.match(".facebook.com") && cookie.name.match("c_user")){
+			Firebug.Console.log("User: " + cookie.value);
+		}
+	}
 	
 	if(tabBody != null && tabBody != undefined){
 		if(prefManager.getBoolPref("extensions.facebookWall.decrypt")){
