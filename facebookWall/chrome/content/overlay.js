@@ -5,12 +5,11 @@ if(!facebookWall){
 var observer = null;
 var doc = null;
 var prefManager = null;
-//var tabBrowser = null;
+var consoleService = null;
 
 facebookWall.init = function(){
-	//Firebug.Console.log("initialising");
+	//consoleService = Components.classes["@mozilla.org/consoleservice;1"].getService(Components.interfaces.nsIConsoleService);
 	prefManager = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefBranch);
-	
 }
 
 facebookWall.BrowserOverlay = {
@@ -30,7 +29,7 @@ facebookWall.checkWall = function(tabBody){
 	for (var e = cookieMgr.enumerator; e.hasMoreElements();) {
 		var cookie = e.getNext().QueryInterface(Components.interfaces.nsICookie);
 		if(cookie.host.match(".facebook.com") && cookie.name.match("c_user")){
-			Firebug.Console.log("User: " + cookie.value);
+			Components.utils.reportError("User: " + cookie.value);
 		}
 	}
 	
@@ -38,19 +37,12 @@ facebookWall.checkWall = function(tabBody){
 		if(prefManager.getBoolPref("extensions.facebookWall.decrypt")){
 			var homeStream = jQuery(tabBody).find('#home_stream');
 			
-			//Firebug.Console.log(homeStream);
-			/*jQuery(tabBody).find('#home_stream li').each(function(index){
-				Firebug.Console.log( index + ": " + jQuery(this).find('span.userContent').text());
-			});*/
 			jQuery(tabBody).find('span.userContent').each(function(index){
-				//Firebug.Console.log( index + ": " + jQuery(this).text());
 				var encrypted = jQuery(this).text();
 				var decrypted = CryptoJS.AES.decrypt(encrypted, "Secret Passphrase").toString(CryptoJS.enc.Utf8);
-				//Firebug.Console.log(decrypted);
 					if(decrypted != ""){
 						jQuery(this).fadeOut("slow", function() {
 							jQuery(this).text(decrypted);
-							/*jQuery(this).fadeIn("slow");*/
 							jQuery(this).css("display", "inline");
 						});
 					}
@@ -63,7 +55,6 @@ facebookWall.checkWall = function(tabBody){
 }
 
 facebookWall.startHttpObserver = function(){
-	//Firebug.Console.log("Encrypt: " + prefManager.getBoolPref("extensions.facebookWall.encrypt"));
 	observer = new facebookWall.HttpRequestObserver();
 	observer.start();
 }
@@ -105,10 +96,10 @@ facebookWall.HttpRequestObserver.prototype = {
 		if (uri.match('^https://www.facebook.com/ajax/updatestatus.php') ||
 			uri.match('^http://www.facebook.com/ajax/updatestatus.php')) {
 			
-			Firebug.Console.log("Request response received: " + uri);
+			Components.utils.reportError("Request response received: " + uri);
 			
 			if(prefManager.getBoolPref("extensions.facebookWall.decrypt")){
-				Firebug.Console.log("Decryption enabled");
+				Components.utils.reportError("Decryption enabled");
 				
 				var visitor = new facebookWall.HeaderInfoVisitor(oHttp);
 				var request = visitor.visitRequest();
@@ -118,12 +109,9 @@ facebookWall.HttpRequestObserver.prototype = {
 				newListener.originalListener = oHttp.setNewListener(newListener);
 				
 			}else{
-				Firebug.Console.log("Not Decrypting");
+				Components.utils.reportError("Not Decrypting");
 			}
 			
-			/*var newListener = new BindTracingListener(uri, request);
-			oHttp.QueryInterface(Ci.nsITraceableChannel);
-			newListener.originalListener = oHttp.setNewListener(newListener);*/
 		}
 		
 	},
@@ -135,10 +123,10 @@ facebookWall.HttpRequestObserver.prototype = {
 		if (uri.match('^https://www.facebook.com/ajax/updatestatus.php') ||
 			uri.match('^http://www.facebook.com/ajax/updatestatus.php')) {
 			
-			Firebug.Console.log("Request being sent: " + uri);
+			Components.utils.reportError("Request being sent: " + uri);
 			
 			if(prefManager.getBoolPref("extensions.facebookWall.encrypt")){
-				Firebug.Console.log("Encryption enabled");
+				Components.utils.reportError("Encryption enabled");
 				
 				var visitor = new facebookWall.HeaderInfoVisitor(oHttp);
 				var requestHeaders = visitor.visitRequest();
@@ -146,7 +134,6 @@ facebookWall.HttpRequestObserver.prototype = {
 				
 				var postArray = facebookWall.URLToArray(postData.body);
 				
-				//Firebug.Console.log(postArray["xhpc_message"]);
 				var encrypted = CryptoJS.AES.encrypt(postArray["xhpc_message"], "Secret Passphrase");
 				
 				postArray["xhpc_message"] = encrypted.toString();
@@ -174,7 +161,7 @@ facebookWall.HttpRequestObserver.prototype = {
 				}
 				
 			}else{
-				Firebug.Console.log("Not Encrypting");
+				Components.utils.reportError("Not Encrypting");
 			}
 			
 		}
@@ -235,7 +222,7 @@ facebookWall.TracingListener.prototype = {
 		
 		// Copy received data as they come.
 		var data = binaryInputStream.readBytes(count);
-		//Firebug.Console.log(data);
+		//Components.utils.reportError(data);
 		this.receivedData.push(data);
 		
 		/*binaryOutputStream.writeBytes(data, count);
@@ -254,7 +241,7 @@ facebookWall.TracingListener.prototype = {
 			var responseSource = this.receivedData.join();
 			var prepend = responseSource.substring(0, 9);
 			var stripped = responseSource.substring(9);
-			Firebug.Console.log(stripped);
+			Components.utils.reportError(stripped);
 			var jsonProcessedData = JSON.parse(stripped);
 			var html = jsonProcessedData.jsmods.markup[0][1].__html;
 			
@@ -276,8 +263,6 @@ facebookWall.TracingListener.prototype = {
 				stripped = JSON.stringify(newJsonData);
 				
 				var newResponseBody = prepend.concat(stripped);
-				
-				//Firebug.Console.log(newResponseBody);
 				
 				request.QueryInterface(Components.interfaces.nsIHttpChannel);
 				
@@ -468,7 +453,7 @@ facebookWall.HeaderInfoVisitor.prototype =  {
 				return new postData(oHttp.uploadStream);
 			}
 		} catch (e) {
-			Firebug.Console.log("Got an exception retrieving the post data: [" + e + "]");
+			Components.utils.reportError("Got an exception retrieving the post data: [" + e + "]");
 			return "crap";
 		}
 		return null;
@@ -526,11 +511,10 @@ facebookWall.pageLoad = function(event){
 		var win = event.originalTarget.defaultView;
 		doc = event.originalTarget;
 		var tabBody = gBrowser.contentDocument.getElementById("facebook");
-		//Firebug.Console.log(gBrowser.contentDocument.getElementById("facebook"));
 		//Make sure it's not inside an iframe
 		if (!win.frameElement) {
 			
-			Firebug.Console.log("page loaded");
+			Components.utils.reportError("page loaded");
 			facebookWall.checkWall(tabBody);
 			facebookWall.startHttpObserver();
 			
