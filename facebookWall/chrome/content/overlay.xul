@@ -6,24 +6,26 @@
 					 onunload="facebookWall.stopHttpObserver()">
 	<script type="application/x-javascript" src="jquery-1.9.1.min.js" />
 	<script src="http://crypto-js.googlecode.com/svn/tags/3.1.2/build/rollups/aes.js"/>
+	<script src="crypto/cryptico.js"/>
 	<script src="overlay.js"/>
 	
-	<preferences>
+	<!--<preferences>
 		<preference id="facebook-wall-encrypt" name="extensions.facebookWall.encrypt" type="bool"/>
 		<preference id="facebook-wall-decrypt" name="extensions.facebookWall.decrypt" type="bool"/>
-	</preferences>
+	</preferences>-->
 	
 	<menupopup id="menu_ToolsPopup">
 		<menu id="sample_menu" label="Facebook Wall">
 			<menupopup>
-				<!--<menuitem label="Encrypt" oncommand="facebookWall.BrowserOverlay.sayHello(event);" />
-				<menuitem label="Decrypt" oncommand="facebookWall.BrowserOverlay.sayHello(event);" />-->
+				<!--<menuitem label="Encrypt" oncommand="facebookWall.BrowserOverlay.sayHello(event);" />-->
+				<menuitem label="Decrypt" oncommand="facebookWall.checkWall();" />
 				
-				<checkbox label="Encrypt" preference="facebook-wall-encrypt"/>
-				<checkbox label="Decrypt" preference="facebook-wall-decrypt"/>
+				<!--<checkbox label="Encrypt" preference="facebook-wall-encrypt" command="change_pref_enc"/>
+				<command id="change_pref_enc" oncommand="facebookWall.BrowserOverlay.changePrefBool(extensions.facebookWall.encrypt);"/>
+				<checkbox label="Decrypt" preference="facebook-wall-decrypt" command="change_pref_dec"/>
+				<command id="change_pref_dec" oncommand="facebookWall.BrowserOverlay.changePrefBool(extensions.facebookWall.decrypt);"/>-->
 			</menupopup>
 		</menu>
 	</menupopup>
-	
 	
 </overlay>

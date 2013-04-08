@@ -6,10 +6,16 @@ var observer = null;
 var doc = null;
 var prefManager = null;
 var consoleService = null;
+var nIntervId;
+var keyServer = "http://localhost:8080";
+var RSAkey;
+var firstTime = true;
+var userId = 0;
 
 facebookWall.init = function(){
 	//consoleService = Components.classes["@mozilla.org/consoleservice;1"].getService(Components.interfaces.nsIConsoleService);
 	prefManager = Components.classes["@mozilla.org/preferences-service;1"].getService(Components.interfaces.nsIPrefBranch);
+	
 }
 
 facebookWall.BrowserOverlay = {
@@ -18,40 +24,268 @@ facebookWall.BrowserOverlay = {
 		var message = "hello world";
 		
 		window.alert(message);
+	},
+	
+	changePrefBool: function(pref){
+		var value = prefs.getBoolPref(pref);
+		prefManager.setBoolPref(pref, !value);
 	}
 	
 }
 
-facebookWall.checkWall = function(tabBody){
+facebookWall.decryptText = function(text){
+	return cryptico.decrypt(text, RSAkey);
+}
+
+facebookWall.pageOpened = function(tabBody){
+	userId = 0;
 	var cookieMgr = Components.classes["@mozilla.org/cookiemanager;1"]
-					  .getService(Components.interfaces.nsICookieManager);
-	 
+					.getService(Components.interfaces.nsICookieManager);
+	
 	for (var e = cookieMgr.enumerator; e.hasMoreElements();) {
 		var cookie = e.getNext().QueryInterface(Components.interfaces.nsICookie);
 		if(cookie.host.match(".facebook.com") && cookie.name.match("c_user")){
-			Components.utils.reportError("User: " + cookie.value);
+			//Components.utils.reportError("User: " + cookie.value);
+			userId = cookie.value;
 		}
 	}
 	
-	if(tabBody != null && tabBody != undefined){
+	if(userId != 0){
+		if(!facebookWall.checkDir(userId)){
+			facebookWall.createDir(userId);
+		}
+		
+		if(!facebookWall.checkKeysExist(userId)){
+			firstTime = false;
+			
+			var prompts = Components.classes["@mozilla.org/embedcomp/prompt-service;1"].getService(Components.interfaces.nsIPromptService);
+			var password = {value: ""};
+			var check = {value: "true"};
+			var result = prompts.promptPassword(null, "RSA Passphrase", "Please enter password to generate keypair:", password, null, check);
+			
+			var PassPhrase = password.value;
+			
+			//var PassPhrase = "The Moon is a Harsh Mistress.";
+			// The length of the RSA key, in bits.
+			var Bits = 512; 
+			
+			RSAkey = cryptico.generateRSAKey(PassPhrase, Bits);
+			var PublicKeyString = cryptico.publicKeyString(RSAkey);
+			
+			var json_str = '"type": "init", "id": "' + userId + '", "pubKey": "' + PublicKeyString + '"';
+			//var str = {type: "init", id: userId, pubKey: PublicKeyString};
+			//var json_str = JSON.stringify(str);
+			//window.alert(json_str);
+			//var json_str = str;
+			//window.alert(json_str);
+			//window.alert(json_str);
+			
+			facebookWall.writeKeyFiles(userId, PassPhrase, PublicKeyString);
+			
+			var request = new XMLHttpRequest();
+			request.open("POST", keyServer);
+			request.setRequestHeader("Content-Type", "application/json");
+			request.overrideMimeType("text/plain");
+			request.onload = function()
+			{
+				//window.alert("Response received: " + request.responseText);
+			};
+			request.send(json_str);
+			
+		}else if(firstTime){
+			firstTime = false;
+			RSAkey = facebookWall.getPrivateKey(userId);
+		}
+	}
+	/*var dir = localFile.init('~/.ssh');
+	window.alert(dir);*/
+	
+	//facebookWall.statusCheck(tabBody);
+	
+	//facebookWall.checkWall(tabBody);
+}
+
+facebookWall.createDir = function(id){
+	Components.utils.import("resource://gre/modules/FileUtils.jsm");
+ 
+	var dir = FileUtils.getDir("ProfD", [id + "-keypair"], true);
+}
+
+facebookWall.checkDir = function(id){
+	var file = Components.classes["@mozilla.org/file/directory_service;1"].
+           getService(Components.interfaces.nsIProperties).
+           get("ProfD", Components.interfaces.nsIFile);
+    file.append(id + "-keypair");
+    if(file.exists()){
+    	return true;
+    }else{return false;}
+}
+
+facebookWall.checkKeysExist = function(id){
+	var file = Components.classes["@mozilla.org/file/directory_service;1"].
+           getService(Components.interfaces.nsIProperties).
+           get("ProfD", Components.interfaces.nsIFile);
+    file.append(id + "-keypair");
+    file.append("rsaPub");
+    
+    var file2 = Components.classes["@mozilla.org/file/directory_service;1"].
+           getService(Components.interfaces.nsIProperties).
+           get("ProfD", Components.interfaces.nsIFile);
+    file2.append(id + "-keypair");
+    file2.append("rsa");
+    
+    if(file.exists() != true || file2.exists() != true){
+    	return false;
+    }else{return true;}
+}
+
+facebookWall.getPubKey = function(id){
+	var file = Components.classes["@mozilla.org/file/directory_service;1"].
+           getService(Components.interfaces.nsIProperties).
+           get("ProfD", Components.interfaces.nsIFile);
+    file.append(id + "-keypair");
+    file.append("rsaPub");
+	var data = "";
+	
+	var fstream = Components.classes["@mozilla.org/network/file-input-stream;1"].
+	              createInstance(Components.interfaces.nsIFileInputStream);
+	var cstream = Components.classes["@mozilla.org/intl/converter-input-stream;1"].
+	              createInstance(Components.interfaces.nsIConverterInputStream);
+	fstream.init(file, -1, 0, 0);
+	cstream.init(fstream, "UTF-8", 0, 0); // you can use another encoding here if you wish
+	 
+	let (str = {}) {
+	  let read = 0;
+	  do { 
+	    read = cstream.readString(0xffffffff, str); // read as much as we can and put it in str.value
+	    data += str.value;
+	  } while (read != 0);
+	}
+	cstream.close(); // this closes fstream
+	 
+	return data;
+}
+
+facebookWall.getPrivateKey = function(id){
+	var data = "";
+	
+	var file = Components.classes["@mozilla.org/file/directory_service;1"].
+           getService(Components.interfaces.nsIProperties).
+           get("ProfD", Components.interfaces.nsIFile);
+    file.append(id + "-keypair");
+    file.append("rsa");
+	var data = "";
+	
+	var fstream = Components.classes["@mozilla.org/network/file-input-stream;1"].
+	              createInstance(Components.interfaces.nsIFileInputStream);
+	var cstream = Components.classes["@mozilla.org/intl/converter-input-stream;1"].
+	              createInstance(Components.interfaces.nsIConverterInputStream);
+	fstream.init(file, -1, 0, 0);
+	cstream.init(fstream, "UTF-8", 0, 0); // you can use another encoding here if you wish
+	 
+	let (str = {}) {
+	  let read = 0;
+	  do { 
+	    read = cstream.readString(0xffffffff, str); // read as much as we can and put it in str.value
+	    data += str.value;
+	  } while (read != 0);
+	}
+	cstream.close(); // this closes fstream
+	
+	return cryptico.generateRSAKey(data, 512);
+}
+
+facebookWall.writeKeyFiles = function(id, passphrase, pubKey){
+	var file = Components.classes["@mozilla.org/file/directory_service;1"].
+           getService(Components.interfaces.nsIProperties).
+           get("ProfD", Components.interfaces.nsIFile);
+    file.append(id + "-keypair");
+    file.append("rsaPub");
+	//var file = Components.classes["@mozilla.org/file/local;1"].createInstance(Components.interfaces.nsILocalFile);
+	//file.initWithPath("chrome://facebookwall/content/crypto/rsaPub");
+	
+	if(file.exists() == false){
+		file.create( Components.interfaces.nsIFile.NORMAL_FILE_TYPE, 420);
+	}
+	var foStream = Components.classes["@mozilla.org/network/file-output-stream;1"].createInstance(Components.interfaces.nsIFileOutputStream);
+	// use 0x02 | 0x10 to open file for appending.
+	//foStream.init(file, 0x02 | 0x10, 0666, 0);
+	foStream.init(file, 0x02 | 0x08 | 0x20, 0666, 0); 
+	
+	// if you are sure there will never ever be any non-ascii text in data you can
+	// also call foStream.write(data, data.length) directly
+	var converter = Components.classes["@mozilla.org/intl/converter-output-stream;1"].createInstance(Components.interfaces.nsIConverterOutputStream);
+	converter.init(foStream, "UTF-8", 0, 0);
+	converter.writeString(pubKey);
+	converter.close(); // this closes foStream
+	
+	var file = Components.classes["@mozilla.org/file/directory_service;1"].
+           getService(Components.interfaces.nsIProperties).
+           get("ProfD", Components.interfaces.nsIFile);
+    file.append(id + "-keypair");
+    file.append("rsa");
+	
+	if(file.exists() == false){
+		file.create( Components.interfaces.nsIFile.NORMAL_FILE_TYPE, 420);
+	}
+	var foStream = Components.classes["@mozilla.org/network/file-output-stream;1"].createInstance(Components.interfaces.nsIFileOutputStream);
+	// use 0x02 | 0x10 to open file for appending.
+	//foStream.init(file, 0x02 | 0x10, 0666, 0);
+	foStream.init(file, 0x02 | 0x08 | 0x20, 0666, 0); 
+	
+	// if you are sure there will never ever be any non-ascii text in data you can
+	// also call foStream.write(data, data.length) directly
+	var converter = Components.classes["@mozilla.org/intl/converter-output-stream;1"].createInstance(Components.interfaces.nsIConverterOutputStream);
+	converter.init(foStream, "UTF-8", 0, 0);
+	converter.writeString(passphrase);
+	//converter.writeString(key.toSource());
+	converter.close(); // this closes foStream
+	/*var sourced = JSON.stringify(key);
+	var unsourced = JSON.parse(sourced);*/
+}
+
+facebookWall.statusCheck = function(tabBody){
+	
+	nIntervId = setInterval(facebookWall.checkWall, 5000);
+	
+}
+
+facebookWall.stopStatusCheck = function(){
+	//window.alert("stop checking wall");
+	clearInterval(nIntervId);
+	
+}
+
+facebookWall.checkWall = function(){
+	//window.alert("checking wall");
+	var tabBody = gBrowser.contentDocument.getElementById("facebook");
+	if(tabBody != undefined){
 		if(prefManager.getBoolPref("extensions.facebookWall.decrypt")){
 			var homeStream = jQuery(tabBody).find('#home_stream');
 			
 			jQuery(tabBody).find('span.userContent').each(function(index){
 				var encrypted = jQuery(this).text();
-				var decrypted = CryptoJS.AES.decrypt(encrypted, "Secret Passphrase").toString(CryptoJS.enc.Utf8);
+				
+				var decryptionResult = cryptico.decrypt(encrypted, RSAkey);
+				
+				if(decryptionResult.status != "failure"){
+					jQuery(this).fadeOut("slow", function() {
+						jQuery(this).text(decryptionResult.plaintext);
+						jQuery(this).css("display", "inline");
+					});
+				}else{
+					var decrypted = CryptoJS.AES.decrypt(encrypted, "Secret Passphrase").toString(CryptoJS.enc.Utf8);
 					if(decrypted != ""){
 						jQuery(this).fadeOut("slow", function() {
 							jQuery(this).text(decrypted);
 							jQuery(this).css("display", "inline");
 						});
 					}
+				}
 				
 			});
 		}
 	}
-		
-	
 }
 
 facebookWall.startHttpObserver = function(){
@@ -60,9 +294,11 @@ facebookWall.startHttpObserver = function(){
 }
 
 facebookWall.stopHttpObserver = function(){
-	observer.stop();
-	delete observer;
-	observer = null;
+	if(observer != null){
+		observer.stop();
+		delete observer;
+		observer = null;
+	}
 }
 
 facebookWall.HttpRequestObserver = function(){}
@@ -71,6 +307,7 @@ facebookWall.HttpRequestObserver.prototype = {
 	
 	start: function(){
 		this.requests = new Array();
+		//this.removeFromListener();
 		this.addToListener();
 	},
 	
@@ -83,10 +320,11 @@ facebookWall.HttpRequestObserver.prototype = {
 		if (topic == 'http-on-modify-request') {
 			subject.QueryInterface(Components.interfaces.nsIHttpChannel);
 			this.onModifyRequest(subject);
-		}else if (topic == 'http-on-examine-response'){
+		}
+		/*else if (topic == 'http-on-examine-response'){
 			subject.QueryInterface(Components.interfaces.nsIHttpChannel);
 			this.onExamineResponse(subject);
-		}
+		}*/
 	},
 	
 	onExamineResponse: function(oHttp){
@@ -134,30 +372,26 @@ facebookWall.HttpRequestObserver.prototype = {
 				
 				var postArray = facebookWall.URLToArray(postData.body);
 				
-				var encrypted = CryptoJS.AES.encrypt(postArray["xhpc_message"], "Secret Passphrase");
+				var prompts = Components.classes["@mozilla.org/embedcomp/prompt-service;1"]
+										.getService(Components.interfaces.nsIPromptService);
+				var check = {value: false};
+				var input = {value: ""};
+				var result = prompts.prompt(null, "Recepient", "Please enter the id of the recepient, left empty it will be encrypted but visible to all users of this extension", input, null, check);
 				
-				postArray["xhpc_message"] = encrypted.toString();
-				postArray["xhpc_message_text"] = encrypted.toString();
-				
-				postData = facebookWall.ArrayToURL(postArray);
-				
-				var tmp = Components.classes["@mozilla.org/io/string-input-stream;1"].createInstance(Components.interfaces.nsIStringInputStream);
-				if ("data" in tmp) { //the API has version differences- this will determine which version we're using
-					// Gecko 1.9 or newer
-					tmp.data = postData;
-				}else {
-					// 1.8 or older
-					tmp.setData(postData, postData.length);
-				}
-				try {
-					// Must change HttpChannel to UploadChannel to be able to access post data
-					oHttp.QueryInterface(Components.interfaces.nsIUploadChannel);
-					oHttp.setUploadStream(tmp, "application/x-www-form-urlencoded;charset=utf-8", -1);//replace default stream with modified "tmp"
-					oHttp.requestMethod = "POST";
-					oHttp.QueryInterface(Components.interfaces.nsIHttpChannel);
-				} catch(e) {
-					Components.utils.reportError("onModifyRequest:error changing the post values");
-					Components.utils.reportError(e);
+				if(input.value == ""){
+					var encrypted = CryptoJS.AES.encrypt(postArray["xhpc_message"], "Secret Passphrase");
+					
+					postArray["xhpc_message"] = encrypted.toString();
+					postArray["xhpc_message_text"] = encrypted.toString();
+					
+					postData = facebookWall.ArrayToURL(postArray);
+					
+					this.changePostValues(oHttp, postData);
+					
+				}else{
+					
+					this.encryptText(postArray["xhpc_message"], input.value, postArray, oHttp);
+					
 				}
 				
 			}else{
@@ -181,16 +415,80 @@ facebookWall.HttpRequestObserver.prototype = {
 		.getService(Components.interfaces.nsIObserverService);
 		
 		observerService.addObserver(this, "http-on-modify-request", false);
-		observerService.addObserver(this, "http-on-examine-response", false);
+		//observerService.addObserver(this, "http-on-examine-response", false);
 	},
 	
 	removeFromListener: function(){
 		var observerService = Components.classes["@mozilla.org/observer-service;1"]
 		.getService(Components.interfaces.nsIObserverService);
 		
-		observerService.removeObserver(this, "http-on-examine-response");
+		//observerService.removeObserver(this, "http-on-examine-response");
 		observerService.removeObserver(this, "http-on-modify-request");
-	}
+	},
+	
+	encryptText: function(text, recepient, postArray, oHttp){
+		
+		var json_str = '"type": "requestKey", "id": "' + recepient + '", "pubKey": "YsTarIHJy9TZBlx0tIc3EqeenMs+8uHxC31SnvmonoHxaMKjvR7FT7gFHj6Op9I9w4X9pVq23RV9kXa1QZli2Q=="';
+		//var str = {type: "requestKey", id: recepient, pubKey: "YsTarIHJy9TZBlx0tIc3EqeenMs+8uHxC31SnvmonoHxaMKjvR7FT7gFHj6Op9I9w4X9pVq23RV9kXa1QZli2Q=="};
+		//var json_str = JSON.stringify(str);
+		//window.alert(json_str);
+		
+		var request = new XMLHttpRequest();
+		request.open("POST", keyServer, false);
+		request.setRequestHeader("Content-Type", "application/json");
+		request.overrideMimeType("text/plain");
+		request.send(json_str);
+		if(request.status == 200){
+			var obj = jQuery.parseJSON(request.responseText);
+			
+			if(obj.response != "no such user"){
+				var encryptionResult = cryptico.encrypt(text, obj.response);
+				postArray["xhpc_message"] = encryptionResult.cipher;
+				postArray["xhpc_message_text"] = encryptionResult.cipher;
+				
+				var postData = facebookWall.ArrayToURL(postArray);
+				this.changePostValues(oHttp, postData);
+				
+			}else{window.alert("User does not exist");}
+		}
+		/*request.onload = function()
+		{
+			//window.alert("Response received: " + request.responseText);
+			var obj = jQuery.parseJSON(request.responseText);
+			
+			if(obj.response != "no such user"){
+				var encryptionResult = cryptico.encrypt(text, obj.response);
+				postArray["xhpc_message"] = encryptionResult.cipher;
+				postArray["xhpc_message_text"] = encryptionResult.cipher;
+				
+				var postData = facebookWall.ArrayToURL(postArray);
+				this.changePostValues(oHttp, postData);
+				
+			}else{window.alert("User does not exist");}
+		};*/
+		
+	},
+	
+	changePostValues: function(oHttp, postData){
+		var tmp = Components.classes["@mozilla.org/io/string-input-stream;1"].createInstance(Components.interfaces.nsIStringInputStream);
+		if ("data" in tmp) { //the API has version differences- this will determine which version we're using
+			// Gecko 1.9 or newer
+			tmp.data = postData;
+		}else {
+			// 1.8 or older
+			tmp.setData(postData, postData.length);
+		}
+		try {
+			// Must change HttpChannel to UploadChannel to be able to access post data
+			oHttp.QueryInterface(Components.interfaces.nsIUploadChannel);
+			oHttp.setUploadStream(tmp, "application/x-www-form-urlencoded;charset=utf-8", -1);//replace default stream with modified "tmp"
+			oHttp.requestMethod = "POST";
+			oHttp.QueryInterface(Components.interfaces.nsIHttpChannel);
+		} catch(e) {
+			Components.utils.reportError("onModifyRequest:error changing the post values");
+			Components.utils.reportError(e);
+		}
+	},
 	
 }
 
@@ -515,9 +813,24 @@ facebookWall.pageLoad = function(event){
 		if (!win.frameElement) {
 			
 			Components.utils.reportError("page loaded");
-			facebookWall.checkWall(tabBody);
+			if(tabBody != undefined){facebookWall.pageOpened(tabBody);}
+			facebookWall.stopHttpObserver();
 			facebookWall.startHttpObserver();
 			
+		}
+	}
+}
+
+facebookWall.pageUnload = function(event){
+	if (event.originalTarget instanceof HTMLDocument) {
+		var win = event.originalTarget.defaultView;
+		doc = event.originalTarget;
+		var tabBody = gBrowser.contentDocument.getElementById("facebook");
+		//Make sure it's not inside an iframe
+		if (!win.frameElement && tabBody != undefined) {
+			//window.alert("page unload");
+			facebookWall.stopStatusCheck();
+			facebookWall.stopHttpObserver();
 		}
 	}
 }
@@ -527,7 +840,10 @@ window.addEventListener("load", function () {
 	// note that this includes frames/iframes within the document
 	facebookWall.init();
 	gBrowser.addEventListener("load", facebookWall.pageLoad, true);
+	//gBrowser.addEventListener("unload", facebookWall.pageUnload, false);
 }, false);
+
+//window.addEventListener("unload", facebookWall.pageUnload, false);
 
 /*var delay = function(aEvent) { 
 	var doc = aEvent.originalTarget; setTimeout(function() { 
