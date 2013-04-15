@@ -5,7 +5,7 @@
 	<Description about="urn:mozilla:install-manifest">
 	
 		<em:id>davidmightbe@gmail.com</em:id>
-		<em:name>Sample</em:name>
+		<em:name>Secure Facebook</em:name>
 		<em:version>1.0</em:version>
 		<em:type>2</em:type>
 		<em:description>Firefox extension which does a little basic encryption</em:description>

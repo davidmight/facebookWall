@@ -74,7 +74,7 @@ public class Main extends NanoHTTPD {
 						System.out.println("key = " + rs.getString("publicKey"));
 						response = rs.getString("publicKey");
 					}
-						response = (String)pubKeys.get(id);
+						//response = (String)pubKeys.get(id);
 						/*}else{
 						response = "User has no key";
 						}*/

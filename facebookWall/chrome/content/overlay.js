@@ -94,15 +94,60 @@ facebookWall.pageOpened = function(tabBody){
 			
 		}else if(firstTime){
 			firstTime = false;
-			RSAkey = facebookWall.getPrivateKey(userId);
+			
+			var prompts = Components.classes["@mozilla.org/embedcomp/prompt-service;1"].getService(Components.interfaces.nsIPromptService);
+			var password = {value: ""};
+			var check = {value: "true"};
+			var result = prompts.promptPassword(null, "RSA Passphrase", "Please enter your rsa password:", password, null, check);
+			
+			if(result == false){
+				facebookWall.BrowserOverlay.changePrefBool(extensions.facebookWall.encrypt);
+				facebookWall.BrowserOverlay.changePrefBool(extensions.facebookWall.decrypt);
+			}else{
+				if(facebookWall.comparePass(userId, password.value)){
+					RSAkey = cryptico.generateRSAKey(password.value, 512);
+				}
+			}
+			//RSAkey = cryptico.generateRSAKey(data, 512);
 		}
 	}
-	/*var dir = localFile.init('~/.ssh');
-	window.alert(dir);*/
 	
 	//facebookWall.statusCheck(tabBody);
 	
 	//facebookWall.checkWall(tabBody);
+}
+
+facebookWall.comparePass = function(id, pass){
+	var data = "";
+	
+	var file = Components.classes["@mozilla.org/file/directory_service;1"].
+           getService(Components.interfaces.nsIProperties).
+           get("ProfD", Components.interfaces.nsIFile);
+    file.append(id + "-keypair");
+    file.append("rsa");
+	var data = "";
+	
+	var fstream = Components.classes["@mozilla.org/network/file-input-stream;1"].
+	              createInstance(Components.interfaces.nsIFileInputStream);
+	var cstream = Components.classes["@mozilla.org/intl/converter-input-stream;1"].
+	              createInstance(Components.interfaces.nsIConverterInputStream);
+	fstream.init(file, -1, 0, 0);
+	cstream.init(fstream, "UTF-8", 0, 0); // you can use another encoding here if you wish
+	 
+	let (str = {}) {
+	  let read = 0;
+	  do { 
+	    read = cstream.readString(0xffffffff, str); // read as much as we can and put it in str.value
+	    data += str.value;
+	  } while (read != 0);
+	}
+	cstream.close(); // this closes fstream
+	var hash = CryptoJS.SHA256(pass);
+	if(hash == data){
+		return true;
+	}else{
+		return false;
+	}
 }
 
 facebookWall.createDir = function(id){
@@ -237,7 +282,10 @@ facebookWall.writeKeyFiles = function(id, passphrase, pubKey){
 	// also call foStream.write(data, data.length) directly
 	var converter = Components.classes["@mozilla.org/intl/converter-output-stream;1"].createInstance(Components.interfaces.nsIConverterOutputStream);
 	converter.init(foStream, "UTF-8", 0, 0);
-	converter.writeString(passphrase);
+	
+	var hash = CryptoJS.SHA256(passphrase);
+	
+	converter.writeString(hash);
 	//converter.writeString(key.toSource());
 	converter.close(); // this closes foStream
 	/*var sourced = JSON.stringify(key);
@@ -274,6 +322,7 @@ facebookWall.checkWall = function(){
 						jQuery(this).css("display", "inline");
 					});
 				}else{
+					encrypted = jQuery(this).text();
 					var decrypted = CryptoJS.AES.decrypt(encrypted, "Secret Passphrase").toString(CryptoJS.enc.Utf8);
 					if(decrypted != ""){
 						jQuery(this).fadeOut("slow", function() {
@@ -431,7 +480,6 @@ facebookWall.HttpRequestObserver.prototype = {
 		var json_str = '"type": "requestKey", "id": "' + recepient + '", "pubKey": "YsTarIHJy9TZBlx0tIc3EqeenMs+8uHxC31SnvmonoHxaMKjvR7FT7gFHj6Op9I9w4X9pVq23RV9kXa1QZli2Q=="';
 		//var str = {type: "requestKey", id: recepient, pubKey: "YsTarIHJy9TZBlx0tIc3EqeenMs+8uHxC31SnvmonoHxaMKjvR7FT7gFHj6Op9I9w4X9pVq23RV9kXa1QZli2Q=="};
 		//var json_str = JSON.stringify(str);
-		//window.alert(json_str);
 		
 		var request = new XMLHttpRequest();
 		request.open("POST", keyServer, false);
@@ -439,6 +487,7 @@ facebookWall.HttpRequestObserver.prototype = {
 		request.overrideMimeType("text/plain");
 		request.send(json_str);
 		if(request.status == 200){
+			//window.alert(request.responseText);
 			var obj = jQuery.parseJSON(request.responseText);
 			
 			if(obj.response != "no such user"){
@@ -451,21 +500,6 @@ facebookWall.HttpRequestObserver.prototype = {
 				
 			}else{window.alert("User does not exist");}
 		}
-		/*request.onload = function()
-		{
-			//window.alert("Response received: " + request.responseText);
-			var obj = jQuery.parseJSON(request.responseText);
-			
-			if(obj.response != "no such user"){
-				var encryptionResult = cryptico.encrypt(text, obj.response);
-				postArray["xhpc_message"] = encryptionResult.cipher;
-				postArray["xhpc_message_text"] = encryptionResult.cipher;
-				
-				var postData = facebookWall.ArrayToURL(postArray);
-				this.changePostValues(oHttp, postData);
-				
-			}else{window.alert("User does not exist");}
-		};*/
 		
 	},
 	
